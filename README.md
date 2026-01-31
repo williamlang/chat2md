@@ -34,7 +34,7 @@ A macOS menu bar app that syncs [Claude Code](https://code.claude.com/docs/en/ov
 
 ### Requirements
 - macOS 14.0 (Sonoma) or later
-- [Claude Code](https://claude.ai/claude-code) CLI installed
+- [Claude Code](https://code.claude.com/docs/en/overview) CLI installed
 
 ### Download
 1. Download `Chat2MD-v1.0.0.zip` from [Releases](https://github.com/jayjongcheolpark/chat2md/releases)
@@ -160,5 +160,5 @@ MIT License
 
 ## Acknowledgments
 
-- Built for use with [Claude Code](https://claude.ai/claude-code) by Anthropic
+- Built for use with [Claude Code](https://code.claude.com/docs/en/overview) by Anthropic
 - Designed for [Obsidian](https://obsidian.md) markdown workflows
