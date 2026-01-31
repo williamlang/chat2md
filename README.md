@@ -28,6 +28,22 @@ A macOS menu bar app that syncs [Claude Code](https://claude.ai/claude-code) con
 - macOS 14.0 (Sonoma) or later
 - [Claude Code](https://claude.ai/claude-code) CLI installed
 
+### Download
+1. Download `Chat2MD-v1.0.0.zip` from [Releases](https://github.com/jayjongcheolpark/chat2md/releases)
+2. Extract and move `Chat2MD.app` to `/Applications`
+3. **Important**: The app is not notarized, so you need to bypass Gatekeeper:
+
+   **Option A** (Recommended):
+   - Open **System Settings → Privacy & Security**
+   - Scroll down to find `"Chat2MD.app" was blocked`
+   - Click **Open Anyway**
+
+   **Option B** (Terminal):
+   ```bash
+   xattr -cr /Applications/Chat2MD.app
+   open /Applications/Chat2MD.app
+   ```
+
 ### Build from Source
 1. Clone this repository
 2. Open `Chat2MD.xcodeproj` in Xcode
