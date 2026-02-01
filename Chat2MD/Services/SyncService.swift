@@ -14,10 +14,9 @@ class SyncService: ObservableObject {
     @Published var watchingProjectsCount: Int = 0
 
     var settings: Settings
-    private let parser = JSONLParser()
     private let converter = MarkdownConverter()
     private let historyStore = SyncHistoryStore()
-    private var projectNameResolver: ProjectNameResolver
+    private let providerRegistry = ProviderRegistry()
 
     private var timerSource: DispatchSourceTimer?
     private let timerQueue = DispatchQueue(label: "com.jaypark.chat2md.timer", qos: .utility)
@@ -28,7 +27,6 @@ class SyncService: ObservableObject {
 
     init(settings: Settings) {
         self.settings = settings
-        self.projectNameResolver = ProjectNameResolver(settings: settings)
         self.syncState = SyncState.load()
     }
 
@@ -95,7 +93,7 @@ class SyncService: ObservableObject {
                     self.watchingProjectsCount = result.watchingCount
                 }
                 if result.syncedCount > 0 {
-                    self.historyStore.addSuccess(filesProcessed: result.syncedCount)
+                    self.historyStore.addSuccess(filesProcessed: result.syncedCount, providers: result.syncedProviders)
                 } else {
                     self.historyStore.addSkipped()
                 }
@@ -112,79 +110,94 @@ class SyncService: ObservableObject {
     private struct SyncResult {
         let syncedCount: Int
         let watchingCount: Int
+        let syncedProviders: [ProviderType]
     }
 
     private func syncAllSessions() throws -> SyncResult {
-        // Validate paths before syncing
-        guard settings.isClaudeProjectsPathValid else {
-            throw SyncError.invalidPath("Claude projects path")
-        }
+        // Validate destination path
         guard settings.isDestinationPathValid else {
             throw SyncError.invalidPath("Destination path")
         }
 
-        let projectsPath = settings.expandedClaudeProjectsPath
-        let fm = FileManager.default
+        var totalSyncedCount = 0
+        var syncedProviders: Set<ProviderType> = []
+        let enabledProviders = providerRegistry.enabledProviders(settings: settings)
 
-        guard fm.fileExists(atPath: projectsPath) else {
-            throw SyncError.projectsPathNotFound
+        // Clear caches at start of sync cycle
+        for provider in enabledProviders {
+            provider.clearCache()
         }
 
-        let projectFolders = try fm.contentsOfDirectory(atPath: projectsPath)
-        var syncedCount = 0
-
-        let cutoffDate = Date().addingTimeInterval(-Double(settings.sessionMaxAgeMinutes) * 60)
         let todayStart = Calendar.current.startOfDay(for: Date())
 
-        for folder in projectFolders {
-            let folderPath = (projectsPath as NSString).appendingPathComponent(folder)
-            var isDir: ObjCBool = false
-            guard fm.fileExists(atPath: folderPath, isDirectory: &isDir), isDir.boolValue else { continue }
+        // Cold start: state is empty (first sync, after reset, or app just started)
+        // Use time since today start to get all of today's conversations
+        // Warm sync: use configured maxAge for efficiency
+        let isColdStart = syncState.sessionStates.isEmpty
+        let maxAge: TimeInterval
+        if isColdStart {
+            maxAge = Date().timeIntervalSince(todayStart)
+        } else {
+            maxAge = Double(settings.sessionMaxAgeMinutes) * 60
+        }
 
-            // Find session files (excluding subagents directory)
-            let sessionFiles = try findSessionFiles(in: folderPath, excludingSubagents: true)
+        // Sync each enabled provider
+        for provider in enabledProviders {
+            let providerPath = settings.expandedPath(for: provider.type)
 
-            for sessionPath in sessionFiles {
-                // Check file attributes
-                let attrs = try fm.attributesOfItem(atPath: sessionPath)
-                guard let modDate = attrs[.modificationDate] as? Date,
-                      let fileSize = attrs[.size] as? Int else { continue }
+            // Validate provider path
+            guard settings.isPathValid(for: provider.type) else {
+                continue  // Skip invalid paths silently
+            }
 
-                // Skip old sessions
-                if modDate < cutoffDate { continue }
+            do {
+                let sessionFiles = try provider.findSessionFiles(in: providerPath, maxAge: maxAge)
 
-                // Skip small files
-                if fileSize < sessionMinSizeBytes { continue }
+                for file in sessionFiles {
+                    // Skip small files
+                    if file.size < sessionMinSizeBytes { continue }
 
-                // Skip if file hasn't been modified since last sync
-                if let lastSyncTime = syncState.getLastSyncedTimestamp(for: sessionPath),
-                   modDate <= lastSyncTime {
-                    continue
-                }
-
-                // Get last synced line for this session
-                let lastLine = syncState.getLastLine(for: sessionPath)
-
-                // Parse only new lines
-                let result = parser.parseNewLines(at: sessionPath, afterLine: lastLine, since: todayStart)
-
-                // Skip if no new messages
-                guard !result.messages.isEmpty else {
-                    // Still update line count even if no valid messages (to avoid re-parsing)
-                    if result.totalLines > lastLine {
-                        syncState.updateSession(sessionPath, lastLine: result.totalLines)
+                    // Skip if file hasn't been modified since last sync
+                    if let lastSyncTime = syncState.getLastSyncedTimestamp(for: file.path),
+                       file.modificationDate <= lastSyncTime {
+                        continue
                     }
-                    continue
+
+                    // Get last synced line for this session
+                    let lastLine = syncState.getLastLine(for: file.path)
+
+                    // Parse only new messages
+                    let result = provider.parseMessages(from: file, afterLine: lastLine, since: todayStart)
+
+                    // Skip if no new messages
+                    guard !result.messages.isEmpty else {
+                        // Still update line count even if no valid messages
+                        if result.totalLines > lastLine {
+                            syncState.updateSession(file.path, lastLine: result.totalLines)
+                        }
+                        continue
+                    }
+
+                    let projectName = provider.resolveProjectName(for: file)
+                    let metadata = provider.resolveMetadata(for: file)
+
+                    // Append to markdown file
+                    try appendMarkdown(
+                        messages: result.messages,
+                        projectName: projectName,
+                        providerType: provider.type,
+                        providerDisplayName: provider.displayName,
+                        metadata: metadata
+                    )
+                    totalSyncedCount += 1
+                    syncedProviders.insert(provider.type)
+
+                    // Update sync state with new line count
+                    syncState.updateSession(file.path, lastLine: result.totalLines)
                 }
-
-                let projectName = projectNameResolver.resolveProjectName(forSession: sessionPath)
-
-                // Append to markdown file
-                try appendMarkdown(messages: result.messages, projectName: projectName)
-                syncedCount += 1
-
-                // Update sync state with new line count
-                syncState.updateSession(sessionPath, lastLine: result.totalLines)
+            } catch {
+                // Log error but continue with other providers
+                continue
             }
         }
 
@@ -193,62 +206,53 @@ class SyncService: ObservableObject {
         syncState.save()
 
         return SyncResult(
-            syncedCount: syncedCount,
-            watchingCount: syncState.sessionStates.count
+            syncedCount: totalSyncedCount,
+            watchingCount: syncState.sessionStates.count,
+            syncedProviders: Array(syncedProviders)
         )
     }
 
-    private func findSessionFiles(in folderPath: String, excludingSubagents: Bool) throws -> [String] {
+    private func appendMarkdown(messages: [ConversationMessage], projectName: String, providerType: ProviderType, providerDisplayName: String, metadata: SessionMetadata) throws {
+        let basePath = settings.expandedDestinationPath
         let fm = FileManager.default
-        var sessionFiles: [String] = []
 
-        let contents = try fm.contentsOfDirectory(atPath: folderPath)
+        // Determine destination path and filename based on organization setting
+        let destPath: String
+        let filename: String
 
-        for item in contents {
-            let itemPath = (folderPath as NSString).appendingPathComponent(item)
-            var isDir: ObjCBool = false
-
-            if fm.fileExists(atPath: itemPath, isDirectory: &isDir) {
-                if isDir.boolValue {
-                    // Skip subagents directory
-                    if excludingSubagents && item == "subagents" {
-                        continue
-                    }
-                    // Recursively search subdirectories (but not subagents)
-                    let subFiles = try findSessionFiles(in: itemPath, excludingSubagents: excludingSubagents)
-                    sessionFiles.append(contentsOf: subFiles)
-                } else if item.hasSuffix(".jsonl") {
-                    sessionFiles.append(itemPath)
-                }
-            }
+        switch settings.outputOrganization {
+        case .flat:
+            // vault/yyyy-mm-dd-provider-project-sessionid.md
+            destPath = basePath
+            filename = converter.generateFilename(projectName: projectName, sessionId: metadata.sessionId, date: Date(), providerID: providerType.rawValue, usePrefix: true)
+        case .subfolder:
+            // vault/provider/yyyy-mm-dd-project-sessionid.md
+            destPath = (basePath as NSString).appendingPathComponent(providerType.rawValue)
+            filename = converter.generateFilename(projectName: projectName, sessionId: metadata.sessionId, date: Date(), providerID: providerType.rawValue, usePrefix: false)
         }
-
-        return sessionFiles
-    }
-
-    private func appendMarkdown(messages: [ConversationMessage], projectName: String) throws {
-        let destPath = settings.expandedDestinationPath
-        let fm = FileManager.default
 
         // Create destination directory if needed
         try fm.createDirectory(atPath: destPath, withIntermediateDirectories: true)
 
-        let filename = converter.generateFilename(projectName: projectName, date: Date())
         let filePath = (destPath as NSString).appendingPathComponent(filename)
 
-        let content = converter.convertForAppend(messages: messages)
+        let content = converter.convertForAppend(messages: messages, assistantName: providerDisplayName)
+        let isNewFile = !fm.fileExists(atPath: filePath)
 
         // Append to file
-        if fm.fileExists(atPath: filePath) {
+        if isNewFile {
+            // Create new file with frontmatter
+            let frontmatter = converter.generateFrontmatter(provider: providerType, projectName: projectName, metadata: metadata)
+            let fullContent = frontmatter + content
+            try fullContent.write(toFile: filePath, atomically: true, encoding: .utf8)
+        } else {
+            // Append to existing file (no frontmatter)
             let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: filePath))
             defer { try? fileHandle.close() }
             fileHandle.seekToEndOfFile()
             if let data = content.data(using: .utf8) {
                 fileHandle.write(data)
             }
-        } else {
-            // Create new file
-            try content.write(toFile: filePath, atomically: true, encoding: .utf8)
         }
     }
 }

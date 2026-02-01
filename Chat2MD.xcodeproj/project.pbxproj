@@ -23,6 +23,15 @@
 		1A111111111111111111111E /* StatusGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A111111111111111111111E /* StatusGraphView.swift */; };
 		1A111111111111111111111F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A111111111111111111111F /* SettingsView.swift */; };
 		1A1111111111111111111120 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2A1111111111111111111120 /* Assets.xcassets */; };
+		1A1111111111111111111121 /* Provider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1111111111111111111123 /* Provider.swift */; };
+		1A1111111111111111111122 /* ProviderType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1111111111111111111124 /* ProviderType.swift */; };
+		1A1111111111111111111123 /* ProviderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1111111111111111111125 /* ProviderRegistry.swift */; };
+		1A1111111111111111111124 /* ClaudeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1111111111111111111126 /* ClaudeProvider.swift */; };
+		1A1111111111111111111125 /* GeminiProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1111111111111111111127 /* GeminiProvider.swift */; };
+		1A1111111111111111111126 /* CodexProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1111111111111111111128 /* CodexProvider.swift */; };
+		1A1111111111111111111127 /* GeminiMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1111111111111111111129 /* GeminiMessage.swift */; };
+		1A1111111111111111111128 /* CodexMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A111111111111111111112A /* CodexMessage.swift */; };
+		1A1111111111111111111129 /* SessionMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A111111111111111111112B /* SessionMetadata.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +53,15 @@
 		2A1111111111111111111120 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2A1111111111111111111121 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2A1111111111111111111122 /* Chat2MD.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Chat2MD.entitlements; sourceTree = "<group>"; };
+		2A1111111111111111111123 /* Provider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Provider.swift; sourceTree = "<group>"; };
+		2A1111111111111111111124 /* ProviderType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderType.swift; sourceTree = "<group>"; };
+		2A1111111111111111111125 /* ProviderRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderRegistry.swift; sourceTree = "<group>"; };
+		2A1111111111111111111126 /* ClaudeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProvider.swift; sourceTree = "<group>"; };
+		2A1111111111111111111127 /* GeminiProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiProvider.swift; sourceTree = "<group>"; };
+		2A1111111111111111111128 /* CodexProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexProvider.swift; sourceTree = "<group>"; };
+		2A1111111111111111111129 /* GeminiMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiMessage.swift; sourceTree = "<group>"; };
+		2A111111111111111111112A /* CodexMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexMessage.swift; sourceTree = "<group>"; };
+		2A111111111111111111112B /* SessionMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMetadata.swift; sourceTree = "<group>"; };
 		3A1111111111111111111111 /* Chat2MD.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chat2MD.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -71,6 +89,7 @@
 			children = (
 				5A1111111111111111111114 /* App */,
 				5A1111111111111111111115 /* Models */,
+				5A1111111111111111111119 /* Providers */,
 				5A1111111111111111111116 /* Services */,
 				5A1111111111111111111117 /* Views */,
 				5A1111111111111111111118 /* Resources */,
@@ -101,11 +120,27 @@
 			isa = PBXGroup;
 			children = (
 				2A1111111111111111111113 /* ClaudeMessage.swift */,
+				2A1111111111111111111129 /* GeminiMessage.swift */,
+				2A111111111111111111112A /* CodexMessage.swift */,
+				2A111111111111111111112B /* SessionMetadata.swift */,
 				2A1111111111111111111114 /* Settings.swift */,
 				2A1111111111111111111115 /* SyncState.swift */,
 				2A1111111111111111111116 /* SyncHistory.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		5A1111111111111111111119 /* Providers */ = {
+			isa = PBXGroup;
+			children = (
+				2A1111111111111111111124 /* ProviderType.swift */,
+				2A1111111111111111111123 /* Provider.swift */,
+				2A1111111111111111111125 /* ProviderRegistry.swift */,
+				2A1111111111111111111126 /* ClaudeProvider.swift */,
+				2A1111111111111111111127 /* GeminiProvider.swift */,
+				2A1111111111111111111128 /* CodexProvider.swift */,
+			);
+			path = Providers;
 			sourceTree = "<group>";
 		};
 		5A1111111111111111111116 /* Services */ = {
@@ -211,9 +246,18 @@
 				1A1111111111111111111111 /* Chat2MDApp.swift in Sources */,
 				1A1111111111111111111112 /* AppDelegate.swift in Sources */,
 				1A1111111111111111111113 /* ClaudeMessage.swift in Sources */,
+				1A1111111111111111111127 /* GeminiMessage.swift in Sources */,
+				1A1111111111111111111128 /* CodexMessage.swift in Sources */,
+				1A1111111111111111111129 /* SessionMetadata.swift in Sources */,
 				1A1111111111111111111114 /* Settings.swift in Sources */,
 				1A1111111111111111111115 /* SyncState.swift in Sources */,
 				1A1111111111111111111116 /* SyncHistory.swift in Sources */,
+				1A1111111111111111111122 /* ProviderType.swift in Sources */,
+				1A1111111111111111111121 /* Provider.swift in Sources */,
+				1A1111111111111111111123 /* ProviderRegistry.swift in Sources */,
+				1A1111111111111111111124 /* ClaudeProvider.swift in Sources */,
+				1A1111111111111111111125 /* GeminiProvider.swift in Sources */,
+				1A1111111111111111111126 /* CodexProvider.swift in Sources */,
 				1A1111111111111111111117 /* JSONLParser.swift in Sources */,
 				1A1111111111111111111118 /* MarkdownConverter.swift in Sources */,
 				1A1111111111111111111119 /* ProjectNameResolver.swift in Sources */,

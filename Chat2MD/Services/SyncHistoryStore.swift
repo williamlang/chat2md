@@ -16,8 +16,8 @@ class SyncHistoryStore {
         save()
     }
 
-    func addSuccess(filesProcessed: Int) {
-        addEntry(SyncHistoryEntry(status: .success, filesProcessed: filesProcessed))
+    func addSuccess(filesProcessed: Int, providers: [ProviderType] = []) {
+        addEntry(SyncHistoryEntry(status: .success, filesProcessed: filesProcessed, providers: providers))
     }
 
     func addFailure(error: String) {

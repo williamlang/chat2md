@@ -1,15 +1,25 @@
 # Chat2MD
 
-A macOS menu bar app that syncs [Claude Code](https://code.claude.com/docs/en/overview) conversations to Markdown files for use with [Obsidian](https://obsidian.md) or any markdown-based note system.
+A macOS menu bar app that syncs AI CLI conversations to Markdown files for use with [Obsidian](https://obsidian.md) or any markdown-based note system.
+
+## Supported Providers
+
+| Provider | Path | Status |
+|----------|------|--------|
+| [Claude Code](https://code.claude.com/docs/en/overview) | `~/.claude/projects` | ✅ Full support |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `~/.gemini/tmp` | ✅ Full support |
+| [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions` | ✅ Full support |
 
 ## Features
 
+- **Multi-Provider Sync**: Supports Claude Code, Gemini CLI, and Codex CLI
 - **Automatic Sync**: Periodically syncs new conversations (configurable interval: 5s - 5min)
 - **Incremental Updates**: Only syncs new messages, not entire conversations
-- **Smart Optimization**: Uses file modification time to skip unchanged files
-- **Auto Cleanup**: Removes orphan entries when project folders are deleted
+- **YAML Frontmatter**: Metadata for Obsidian (date wikilink, provider, project, session, cwd)
+- **Smart Optimization**: Uses folder modification time to skip unchanged directories
+- **Menu Bar Toggles**: Enable/disable each provider without opening Settings
 - **Launch at Login**: Optionally start automatically when you log in
-- **Status Graph**: Visual history of recent sync operations
+- **Status Graph**: Visual history of recent sync operations per provider
 - **Debug View**: Inspect sync state and troubleshoot issues
 
 ## Screenshots
@@ -22,22 +32,22 @@ A macOS menu bar app that syncs [Claude Code](https://code.claude.com/docs/en/ov
 
 ### App UI
 
-<img src="Screenshots/Menu Bar.png" width="300" alt="Menu Bar">
+<img src="Screenshots/Menubar.png" width="300" alt="Menu Bar">
 
-<img src="Screenshots/Setings - General.png" width="500" alt="Settings - General">
+<img src="Screenshots/General.png" width="500" alt="Settings - General">
 
-<img src="Screenshots/Settings - Paths.png" width="500" alt="Settings - Paths">
+<img src="Screenshots/Paths.png" width="500" alt="Settings - Paths">
 
-<img src="Screenshots/Settings - Debug.png" width="500" alt="Settings - Debug">
+<img src="Screenshots/Debug.png" width="500" alt="Settings - Debug">
 
 ## Installation
 
 ### Requirements
 - macOS 14.0 (Sonoma) or later
-- [Claude Code](https://code.claude.com/docs/en/overview) CLI installed
+- At least one supported CLI installed (Claude Code, Gemini CLI, or Codex CLI)
 
 ### Download
-1. Download `Chat2MD-v1.0.0.zip` from [Releases](https://github.com/jayjongcheolpark/chat2md/releases)
+1. Download `Chat2MD-v1.1.0.zip` from [Releases](https://github.com/jayjongcheolpark/chat2md/releases)
 2. Extract and move `Chat2MD.app` to `/Applications`
 3. **Important**: The app is not notarized, so you need to bypass Gatekeeper:
 
@@ -62,8 +72,10 @@ A macOS menu bar app that syncs [Claude Code](https://code.claude.com/docs/en/ov
 ### Paths
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Claude Projects | `~/.claude/projects` | Where Claude Code stores session files |
-| Output Directory | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/vault/claude` | Where to save markdown files |
+| Output Directory | `~/...obsidian/Documents/vault/claude` | Where to save markdown files |
+| Claude Code | `~/.claude/projects` | Claude Code session files |
+| Gemini CLI | `~/.gemini/tmp` | Gemini CLI session files |
+| Codex CLI | `~/.codex/sessions` | Codex CLI session files |
 
 ### Sync Options
 | Setting | Default | Description |
@@ -82,26 +94,68 @@ A macOS menu bar app that syncs [Claude Code](https://code.claude.com/docs/en/ov
 
 ## How It Works
 
-1. Reads Claude Code session files from `~/.claude/projects`
-2. Uses `sessions-index.json` to get the actual project path
+1. Scans enabled provider directories for session files
+2. Resolves project names from provider-specific metadata
 3. Extracts new messages since last sync
-4. Appends to daily markdown files named `YYYY-MM-DD-projectname.md`
+4. Creates session-based markdown files with YAML frontmatter
+
+### Sync Optimization
+
+The app uses smart optimization to minimize disk I/O:
+
+**Cold Start** (first sync after app launch, state reset, or re-enable):
+- Fetches all conversations from **today** (since midnight)
+- Ensures no conversations are missed after downtime
+
+**Warm Sync** (continuous operation):
+- Only checks files modified within **Session Max Age** (default: 1 hour)
+- Skips folders whose modification date is older than cutoff
+- Significantly reduces scanning for large session directories
+
+**Folder-level Optimization**:
+| Provider | Strategy |
+|----------|----------|
+| Claude Code | Skip project folders not modified since cutoff |
+| Gemini CLI | Skip hash folders not modified since cutoff |
+| Codex CLI | Skip only leaf folders (DD in YYYY/MM/DD structure) |
+
+**Incremental Parsing**:
+- Tracks last synced line number per session file
+- Only parses new lines added since last sync
+- Skips files not modified since last sync timestamp
 
 ## Output Format
 
-Conversations are saved as daily markdown files:
+### File Organization
+**Flat mode** (default):
 ```
-2026-01-31-app.md
-2026-01-31-chat2md.md
+vault/2026-02-01-claude-chat2md-7f5bb80b.md
+vault/2026-02-01-gemini-1490b1b4-64aec3c1.md
+vault/2026-02-01-codex-chat2md-9750ef13.md
 ```
 
-Each message is formatted as:
+**Subfolder mode**:
+```
+vault/claude/2026-02-01-chat2md-7f5bb80b.md
+vault/gemini/2026-02-01-1490b1b4-64aec3c1.md
+vault/codex/2026-02-01-chat2md-9750ef13.md
+```
+
+### File Content
 ```markdown
+---
+date: "[[2026-02-01]]"
+provider: claude
+project: chat2md
+session: 7f5bb80b
+cwd: /Users/name/Developer/chat2md
+---
+
 **User**:
 Your question here
 
-**Claude**:
-Claude's response here
+**Claude Code**:
+Response here
 
 | Tables | Work | Too |
 |--------|------|-----|
@@ -135,23 +189,31 @@ The app uses the `projectPath` from Claude's `sessions-index.json`. The last fol
 ```
 Chat2MD/
 ├── App/
-│   ├── Chat2MDApp.swift      # App entry point
-│   └── AppDelegate.swift     # Menu bar setup
+│   ├── Chat2MDApp.swift        # App entry point
+│   └── AppDelegate.swift       # Menu bar setup
 ├── Models/
-│   ├── ClaudeMessage.swift   # JSONL message parsing
-│   ├── Settings.swift        # User preferences
-│   ├── SyncState.swift       # Sync progress tracking
-│   └── SyncHistory.swift     # Sync history entries
+│   ├── ClaudeMessage.swift     # Claude JSONL parsing
+│   ├── GeminiMessage.swift     # Gemini JSON parsing
+│   ├── CodexMessage.swift      # Codex JSONL parsing
+│   ├── SessionMetadata.swift   # Frontmatter metadata
+│   ├── Settings.swift          # User preferences
+│   ├── SyncState.swift         # Sync progress tracking
+│   └── SyncHistory.swift       # Sync history entries
+├── Providers/
+│   ├── Provider.swift          # Provider protocol
+│   ├── ProviderType.swift      # Provider enum
+│   ├── ProviderRegistry.swift  # Provider management
+│   ├── ClaudeProvider.swift    # Claude Code implementation
+│   ├── GeminiProvider.swift    # Gemini CLI implementation
+│   └── CodexProvider.swift     # Codex CLI implementation
 ├── Services/
-│   ├── SyncService.swift     # Main sync logic
-│   ├── JSONLParser.swift     # Parse Claude session files
+│   ├── SyncService.swift       # Main sync logic
 │   ├── MarkdownConverter.swift # Convert to markdown
-│   ├── ProjectNameResolver.swift # Resolve project names
 │   └── LaunchAgentManager.swift # Login item management
 └── Views/
-    ├── MenuBarView.swift     # Menu bar UI
-    ├── SettingsView.swift    # Settings window
-    └── StatusGraphView.swift # Sync status graph
+    ├── MenuBarView.swift       # Menu bar UI
+    ├── SettingsView.swift      # Settings window
+    └── StatusGraphView.swift   # Sync status graph
 ```
 
 ## License

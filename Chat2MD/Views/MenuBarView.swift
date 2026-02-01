@@ -23,13 +23,17 @@ struct MenuBarView: View {
 
             Divider()
 
-            // Status Graph
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Last 48 Syncs")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                StatusGraphView(entries: syncService.recentHistory)
-                    .frame(height: 24)
+            // Status Graphs per Provider
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(enabledProviders, id: \.self) { provider in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(provider.displayName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        StatusGraphView(entries: syncService.recentHistory, providerFilter: provider)
+                            .frame(height: 20)
+                    }
+                }
                 HStack {
                     Spacer()
                     Text("now")
@@ -103,19 +107,25 @@ struct MenuBarView: View {
 
             Divider()
 
-            // Toggle and Quit
-            Toggle(isOn: $settings.syncEnabled) {
-                Text("Enable Sync")
-            }
-            .toggleStyle(.switch)
-            .padding(.horizontal)
-            .onChange(of: settings.syncEnabled) { _, newValue in
-                if newValue {
-                    syncService.startPeriodicSync()
-                } else {
-                    syncService.stopPeriodicSync()
+            // Provider Toggles
+            VStack(spacing: 6) {
+                ForEach(ProviderType.allCases) { provider in
+                    HStack {
+                        Text(provider.displayName)
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { settings.isProviderEnabled(provider) },
+                            set: { settings.setProviderEnabled(provider, $0) }
+                        ))
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .labelsHidden()
+                    }
                 }
             }
+            .padding(.horizontal)
+
+            Divider()
 
             Button(action: { NSApplication.shared.terminate(nil) }) {
                 HStack {
@@ -162,5 +172,9 @@ struct MenuBarView: View {
     private func openDestination() {
         let path = settings.expandedDestinationPath
         NSWorkspace.shared.open(URL(fileURLWithPath: path))
+    }
+
+    private var enabledProviders: [ProviderType] {
+        ProviderType.allCases.filter { settings.isProviderEnabled($0) }
     }
 }

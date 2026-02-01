@@ -2,10 +2,34 @@ import SwiftUI
 
 struct StatusGraphView: View {
     let entries: [SyncHistoryEntry]
+    let providerFilter: ProviderType?  // nil = show all providers
     @State private var hoveredIndex: Int?
 
     private let barCount = 48
     private let barSpacing: CGFloat = 2
+
+    init(entries: [SyncHistoryEntry], providerFilter: ProviderType? = nil) {
+        self.entries = entries
+        self.providerFilter = providerFilter
+    }
+
+    /// Entries filtered by provider (if filter is set)
+    private var filteredEntries: [SyncHistoryEntry] {
+        guard let provider = providerFilter else { return entries }
+        return entries.map { entry in
+            // Transform entry: success only if this provider synced
+            if entry.status == .success {
+                let hasProvider = entry.providerTypes.contains(provider)
+                if hasProvider {
+                    return entry
+                } else {
+                    // Convert to skipped if this provider didn't sync
+                    return SyncHistoryEntry(status: .skipped)
+                }
+            }
+            return entry
+        }
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -30,9 +54,10 @@ struct StatusGraphView: View {
 
     private func entryForBar(at index: Int) -> SyncHistoryEntry? {
         // Display newest on right, align data to right side
-        let offset = barCount - entries.count
+        let filtered = filteredEntries
+        let offset = barCount - filtered.count
         guard index >= offset else { return nil }
-        return entries[index - offset]
+        return filtered[index - offset]
     }
 
     private func colorForEntry(_ entry: SyncHistoryEntry?) -> Color {
@@ -62,7 +87,9 @@ struct StatusGraphView: View {
         let statusString: String
         switch entry.status {
         case .success:
-            statusString = "Success (\(entry.filesProcessed) files)"
+            let providers = entry.providerTypes
+            let providerNames = providers.isEmpty ? "" : " [\(providers.map { $0.rawValue }.joined(separator: ", "))]"
+            statusString = "Success (\(entry.filesProcessed) files)\(providerNames)"
         case .failure:
             statusString = "Failed: \(entry.errorMessage ?? "Unknown")"
         case .skipped:

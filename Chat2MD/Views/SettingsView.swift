@@ -94,21 +94,6 @@ struct PathSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Claude Projects") {
-                HStack {
-                    TextField("Path", text: $settings.claudeProjectsPath)
-                        .textFieldStyle(.roundedBorder)
-                    Button("Browse...") {
-                        selectFolder { path in
-                            settings.claudeProjectsPath = path
-                        }
-                    }
-                }
-                Text("Location of Claude Code session files")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
             Section("Output Directory") {
                 HStack {
                     TextField("Path", text: $settings.destinationPath)
@@ -119,13 +104,87 @@ struct PathSettingsView: View {
                         }
                     }
                 }
-                Text("Where to save markdown files")
-                    .font(.caption)
+
+                Picker("Organization", selection: $settings.outputOrganizationRaw) {
+                    Text("yyyy-mm-dd-provider-name.md").tag("flat")
+                    Text("provider/yyyy-mm-dd-name.md").tag("subfolder")
+                }
+                .pickerStyle(.radioGroup)
+
+                Text(exampleOutputPath)
+                    .font(.system(.caption, design: .monospaced))
                     .foregroundColor(.secondary)
+            }
+
+            Section("Providers") {
+                ProviderSettingsRow(
+                    provider: .claude,
+                    path: $settings.claudePath
+                )
+
+                ProviderSettingsRow(
+                    provider: .gemini,
+                    path: $settings.geminiPath
+                )
+
+                ProviderSettingsRow(
+                    provider: .codex,
+                    path: $settings.codexPath
+                )
             }
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    private func selectFolder(completion: @escaping (String) -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+
+        if panel.runModal() == .OK, let url = panel.url {
+            completion(url.path)
+        }
+    }
+
+    private var exampleOutputPath: String {
+        let base = settings.destinationPath
+        let dateStr = "yyyy-mm-dd"
+        let provider = "claude"
+        let project = "project"
+
+        if settings.outputOrganizationRaw == "subfolder" {
+            return "\(base)/\(provider)/\(dateStr)-\(project).md"
+        } else {
+            return "\(base)/\(dateStr)-\(provider)-\(project).md"
+        }
+    }
+}
+
+struct ProviderSettingsRow: View {
+    let provider: ProviderType
+    @Binding var path: String
+
+    @State private var isExpanded: Bool = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            HStack {
+                TextField("Path", text: $path)
+                    .textFieldStyle(.roundedBorder)
+                Button("Browse...") {
+                    selectFolder { newPath in
+                        path = newPath
+                    }
+                }
+            }
+            Text("Default: \(provider.defaultPath)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        } label: {
+            Text(provider.displayName)
+        }
     }
 
     private func selectFolder(completion: @escaping (String) -> Void) {
