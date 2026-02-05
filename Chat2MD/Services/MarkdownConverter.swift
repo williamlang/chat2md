@@ -12,10 +12,12 @@ class MarkdownConverter {
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dateString = dateFormatter.string(from: Date())
 
+        let cleanProjectName = cleanProviderPrefix(from: projectName)
+
         var lines: [String] = ["---"]
         lines.append("date: \"[[\(dateString)]]\"")
         lines.append("provider: \(provider.rawValue)")
-        lines.append("project: \(projectName)")
+        lines.append("project: \(cleanProjectName)")
         lines.append("session: \(metadata.sessionId)")
         if let cwd = metadata.workingDirectory {
             lines.append("cwd: \(cwd)")
@@ -55,14 +57,7 @@ class MarkdownConverter {
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dateString = dateFormatter.string(from: date)
 
-        // Remove provider prefix from projectName if it exists (e.g., "codex-chat2md" -> "chat2md")
-        var cleanProjectName = projectName
-        for provider in ["claude-", "gemini-", "codex-"] {
-            if cleanProjectName.hasPrefix(provider) {
-                cleanProjectName = String(cleanProjectName.dropFirst(provider.count))
-                break
-            }
-        }
+        let cleanProjectName = cleanProviderPrefix(from: projectName)
         let sanitizedProject = sanitizeFilename(cleanProjectName)
 
         if usePrefix {
@@ -72,6 +67,18 @@ class MarkdownConverter {
             // subfolder mode: yyyy-mm-dd-project-sessionid.md
             return "\(dateString)-\(sanitizedProject)-\(sessionId).md"
         }
+    }
+
+    /// Remove provider prefix from project name if it exists (e.g., "codex-chat2md" -> "chat2md")
+    private func cleanProviderPrefix(from projectName: String) -> String {
+        var cleanName = projectName
+        for provider in ["claude-", "gemini-", "codex-"] {
+            if cleanName.hasPrefix(provider) {
+                cleanName = String(cleanName.dropFirst(provider.count))
+                break
+            }
+        }
+        return cleanName
     }
 
     private func sanitizeFilename(_ name: String) -> String {
