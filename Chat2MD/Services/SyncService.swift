@@ -235,7 +235,10 @@ class SyncService: ObservableObject {
         // Create destination directory if needed
         try fm.createDirectory(atPath: destPath, withIntermediateDirectories: true)
 
-        let filePath = (destPath as NSString).appendingPathComponent(filename)
+        // Reuse an existing file for this session (regardless of its date prefix)
+        // so chats that span multiple days keep appending to the original file.
+        let filePath = existingSessionFile(in: destPath, sessionId: metadata.sessionId)
+            ?? (destPath as NSString).appendingPathComponent(filename)
 
         let content = converter.convertForAppend(messages: messages, assistantName: providerDisplayName)
         let isNewFile = !fm.fileExists(atPath: filePath)
@@ -255,6 +258,14 @@ class SyncService: ObservableObject {
                 fileHandle.write(data)
             }
         }
+    }
+
+    private func existingSessionFile(in dir: String, sessionId: String) -> String? {
+        let fm = FileManager.default
+        guard let contents = try? fm.contentsOfDirectory(atPath: dir) else { return nil }
+        let suffix = "-\(sessionId).md"
+        guard let match = contents.first(where: { $0.hasSuffix(suffix) }) else { return nil }
+        return (dir as NSString).appendingPathComponent(match)
     }
 }
 
